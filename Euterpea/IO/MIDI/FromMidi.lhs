@@ -1,4 +1,6 @@
-> module Euterpea.IO.MIDI.FromMidi (fromMidi) where
+> {-# LANGUAGE NamedFieldPuns #-}
+
+> module Euterpea.IO.MIDI.FromMidi (fromMidi, fromMidiQuantized) where
 > import Euterpea.Music
 > import Euterpea.IO.MIDI.ToMidi
 > import Euterpea.IO.MIDI.GeneralMidi
@@ -75,6 +77,31 @@ can later be filtered out without affecting the timing of support events.
 > addTrackTicks sum [] = []
 > addTrackTicks sum ((t,x):ts) = (t+sum,x) : addTrackTicks (t+sum) ts
 
+Gets the number of ticks per beat in a MIDI file (error if this data is not present).
+
+> ticksPerBeat :: Midi -> Int
+> ticksPerBeat m = case (timeDiv m) of
+>     TicksPerBeat tpb -> tpb
+>     TicksPerSecond _ _ -> error "TimeDiv must be in ticks per beat"
+
+Given an integer quantization q, quantizes all ticks to be multiples of q.
+
+> quantizeTrack :: Int -> Track Ticks -> Track Ticks
+> quantizeTrack q track = [(quantize t, msg) | (t, msg) <- track]
+>     where
+>         quantize :: Ticks -> Ticks
+>         quantize t = round (fromIntegral t / fromIntegral q) * q
+
+Given a duration in beats, quantizes midi messages so that time intervals are always some whole number of this duration.
+
+TODO: delete this because it gets each track off timing.
+
+> quantizeMidi :: Rational -> Midi -> Midi
+> quantizeMidi r m@Midi{fileType, timeDiv, tracks} = Midi {fileType, timeDiv, tracks = tracks'}
+>     where
+>         q = round (r * fromIntegral (ticksPerBeat m))
+>         tracks' = map (quantizeTrack q) tracks
+
 The following function addresses a ticks to Music duration conversion.
 
 > applyTD :: TimeDiv -> SimpleMsg -> SimpleMsg
@@ -86,38 +113,45 @@ The following function addresses a ticks to Music duration conversion.
 >     case tdw of TicksPerBeat td -> t / (fromIntegral td * 4)
 >                 TicksPerSecond fps tpf -> t / fromIntegral (fps * tpf)
 
+Converts a track into a list of SimpleMsgs.
 
-The midiToEvents function will take a Midi structure (from importFile, 
-for example) and convert it to a list of lists of SimpleMsgs. Each outer 
-list represents a track in the original Midi. 
+> simplifyTrack :: Int -> [(Ticks, Message)] -> [SimpleMsg]
+> simplifyTrack icur [] = []
+> simplifyTrack icur ((t,m):ts) = 
+>   case m of (NoteOn c p v) ->
+>                 if (v == 0) -- NoteOn with velocity 0 means NoteOff
+>                     then SE (fromIntegral t, p, v, icur, Off) : simplifyTrack icur ts
+>                     else SE (fromIntegral t, p, v, icur, On) : simplifyTrack icur ts
+>             (NoteOff c p v) -> 
+>                 SE (fromIntegral t, p, v, icur, Off) : simplifyTrack icur ts
+>             (ProgramChange c p) -> simplifyTrack (if c==9 then (-1) else p) ts 
+>             (TempoChange x) -> T (fromIntegral t, fromIntegral x) : simplifyTrack icur ts
+>             _ -> simplifyTrack icur ts
 
-> midiToEvents :: Midi -> [[SimpleMsg]]
-> midiToEvents m = 
->     let ts = map (simplifyTrack 0) $ map (addTrackTicks 0) (tracks m) 
->     in  distributeTempos $ map (map (applyTD $ timeDiv m)) ts where 
->   simplifyTrack :: Int -> [(Ticks, Message)] -> [SimpleMsg]
->   simplifyTrack icur [] = []
->   simplifyTrack icur ((t,m):ts) = 
->     case m of (NoteOn c p v) ->
->                   if (v == 0)
->                       then SE (fromIntegral t, p, v, icur, Off) : simplifyTrack icur ts
->                       else SE (fromIntegral t, p, v, icur, On) : simplifyTrack icur ts
->               (NoteOff c p v) -> 
->                   SE (fromIntegral t, p, v, icur, Off) : simplifyTrack icur ts
->               (ProgramChange c p) -> simplifyTrack (if c==9 then (-1) else p) ts 
->               (TempoChange x) -> T (fromIntegral t, fromIntegral x) : simplifyTrack icur ts
->               _ -> simplifyTrack icur ts 
-
-
-The first track is the tempo track. It's events need to be distributed
-across the other tracks. This function below is called for that purpose
-in midiToEvents above.
+The first track of a Midi is the tempo track. Its events need to be distributed
+across the other tracks.
 
 > distributeTempos :: [[SimpleMsg]] -> [[SimpleMsg]]
 > distributeTempos tracks = 
 >     if length tracks > 1 then map (sort . (head tracks ++)) (tail tracks)
 >     else tracks -- must be a single-track file with embedded tempo changes.
 
+The midiToEvents function will take a Midi structure (from importFile, 
+for example) and convert it to a list of lists of SimpleMsgs. Each outer 
+list represents a track in the original Midi. 
+
+> midiToEvents :: Midi -> [[SimpleMsg]]
+> midiToEvents m = distributeTempos $ map (map (applyTD $ timeDiv m)) ts
+>     where
+>         ts = map ((simplifyTrack 0) . (addTrackTicks 0)) (tracks m)
+
+Converts a Midi to a list of lists of SimpleMsgs that are quantized to the given fractional number of beats.
+
+> midiToQuantizedEvents :: Dur -> Midi -> [[SimpleMsg]]
+> midiToQuantizedEvents d m = distributeTempos $ map (map (applyTD $ timeDiv m)) ts
+>     where
+>         q = round (d * fromIntegral (ticksPerBeat m))
+>         ts = map ((simplifyTrack 0) . (quantizeTrack q) . (addTrackTicks 0)) (tracks m)
 
 The eventsToMusic function will convert a list of lists of SimpleMsgs 
 (output from midiToEvents) to a Music(Pitch,Volume) structure. All 
@@ -243,17 +277,16 @@ until the the time of the last event in the list.
 >     let SE(t1,p1,v1,ins1,e1) = last $ filter isSE es
 >     in  SE(t1,p,v,ins,Off) 
 
-
 The fromMidi function wraps the combination of midiToEvents and 
 eventsToMusic and performs the final conversion to Music1.
 
 > fromMidi :: Midi -> Music1
-> fromMidi m = 
->     let seList = midiToEvents m
->         iNums = filter (>0) $ map getInstrument seList
->         upm = makeUPM $ map toEnum iNums
->     in  mMap (\(p,v) -> (p, [Volume v])) $ eventsToMusic seList
+> fromMidi m = mMap (\(p, v) -> (p, [Volume v])) $ eventsToMusic $ midiToEvents m
 
+Converts a Midi to Music1, quantizing the events to the given duration.
+
+> fromMidiQuantized :: Dur -> Midi -> Music1
+> fromMidiQuantized d m = mMap (\(p, v) -> (p, [Volume v])) $ eventsToMusic $ midiToQuantizedEvents d m
 
 This function is to correct for the fact that channel 10 is
 traditionally reserved for percussion. If there is no percussion,

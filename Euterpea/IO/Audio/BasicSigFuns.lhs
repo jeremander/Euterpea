@@ -25,7 +25,7 @@ arrow syntax when needed, we omit that functionality from Eutperpea's
 versions of the unit generators.
 
 > module Euterpea.IO.Audio.BasicSigFuns (
->   Table,
+>   Table(..),
 >   pluck,
 >   PluckDecayMethod(..),
 >   balance,
