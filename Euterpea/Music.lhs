@@ -338,10 +338,18 @@ pitch 127 = (G,9)
 > dur (Modify (Tempo r) m)  = dur m / r
 > dur (Modify _ m)          = dur m
 
+Update as of Euterpea 2.0.7: the cut and remove functions 
+previously used to permit zero-duration notes. This can cause
+some bad behavior with some synthesizers. The Note cases have
+been re-written to turn zero-duration notes into rests.
+These functions will still introduce zero-duration rests. 
+To remove all zero duration values, use removeZeros.
+
 > cut :: Dur -> Music a -> Music a
 > cut d m | d <= 0            = rest 0
-> cut d (Prim (Note oldD p))  = note (min oldD d) p
-> cut d (Prim (Rest oldD))    = rest (min oldD d)
+> cut d (Prim (Note oldD p))  =  let d' = max (min oldD d) 0
+>                                in if d'>0 then note d' p else rest 0
+> cut d (Prim (Rest oldD))    = rest (max (min oldD d) 0)
 > cut d (m1 :=: m2)           = cut d m1 :=: cut d m2
 > cut d (m1 :+: m2)           =  let  m'1  = cut d m1
 >                                     m'2  = cut (d - dur m'1) m2
@@ -349,10 +357,10 @@ pitch 127 = (G,9)
 > cut d (Modify (Tempo r) m)  = tempo r (cut (d*r) m)
 > cut d (Modify c m)          = Modify c (cut d m)
 
-
 > remove :: Dur -> Music a -> Music a
 > remove d m | d <= 0            = m
-> remove d (Prim (Note oldD p))  = note (max (oldD-d) 0) p
+> remove d (Prim (Note oldD p))  =  let d' = max (oldD-d) 0
+>                                   in  if d'>0 then note d' p else rest 0
 > remove d (Prim (Rest oldD))    = rest (max (oldD-d) 0)
 > remove d (m1 :=: m2)           = remove d m1 :=: remove d m2
 > remove d (m1 :+: m2)           =  let  m'1  = remove d m1
@@ -382,6 +390,7 @@ pitch 127 = (G,9)
 >        (m, Prim (Rest 0  ))  -> m
 >        (m1, m2)              -> m1 :=: m2
 > removeZeros (Modify c m)  = Modify c (removeZeros m)
+
 
 > type LazyDur = [Dur]
 > durL :: Music a -> LazyDur
