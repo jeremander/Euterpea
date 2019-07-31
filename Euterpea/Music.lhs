@@ -129,6 +129,7 @@
 >         Volume  Int   --  MIDI convention: 0=min, 127=max
 >      |  Fingering Integer
 >      |  Dynamics String
+>      |  PitchShift Double  -- shift in cents from standard 12EQ temperament
 >      |  Params [Double]
 >    deriving (Eq, Show)
 

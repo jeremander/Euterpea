@@ -74,17 +74,20 @@
 >        setupInst        = (0, ProgramChange chan progNum)
 >        setTempo         = (0, TempoChange defST)
 >        loop []      =  []
->        loop (e:es)  =  let (mev1,mev2) = mkMEvents chan e
->                        in mev1 : insertMEvent mev2 (loop es)
+>        loop (e:es)  =  let (pcMsg, onMsg, offMsg) = mkMEvents chan e
+>                        in pcMsg : onMsg : insertMEvent offMsg (loop es)
 >   in setupInst : setTempo : loop pf
 
   
-> mkMEvents :: Channel -> MEvent -> (MidiEvent,MidiEvent)
-> mkMEvents  mChan (MEvent {  eTime = t, ePitch = p, 
+> mkMEvents :: Channel -> MEvent -> (MidiEvent, MidiEvent, MidiEvent)
+> mkMEvents  mChan (MEvent {  eTime = t, ePitch = p, ePitchBend = pb,
 >                            eDur = d, eVol = v})
->                   = (  (toDelta t, NoteOn  mChan p v'),
->                        (toDelta (t+d), NoteOff mChan p v') )
->            where v' = max 0 (min 127 (fromIntegral v))
+>                   = (pcMsg, onMsg, offMsg)
+>            where
+>               v' = max 0 (min 127 (fromIntegral v))
+>               pcMsg = (toDelta t, PitchWheel mChan pb)
+>               onMsg = (toDelta t, NoteOn mChan p v')
+>               offMsg = (toDelta (t + d), NoteOff mChan p v')
 
 > toDelta t = round (t * 2.0 * fromIntegral division)
 

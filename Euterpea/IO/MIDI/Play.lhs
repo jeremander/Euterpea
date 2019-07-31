@@ -210,8 +210,8 @@ it will sometimes have its NoteOff lost, which can cause errors.
 >     -- stdMerge: converts ANotes into a sorted list of On/Off events
 >     stdMerge :: [(Time, MidiMessage)] -> [(Time, MidiMessage)]
 >     stdMerge [] = []
->     stdMerge ((t,ANote c k v d):es) =
->         (t, Std $ NoteOn c k v) :
+>     stdMerge ((t,ANote c k v d pb):es) =
+>         (t, Std $ PitchWheel c pb) : (t, Std $ NoteOn c k v) :
 >         stdMerge (insertBy (\(a,b) (x,y) -> compare a x) (t+d, Std $ NoteOff c k v) es)
 >     stdMerge (e1:es) = e1 : stdMerge es
 >     -- channelMap: performs instrument assignment for a list of Events
@@ -222,7 +222,7 @@ it will sometimes have its NoteOff lost, which can cause errors.
 >             ((chan, cMap'), newI) = case lookup i cMap of Nothing -> (cf i cMap, True)
 >                                                           Just x  -> ((x, cMap), False)
 >             e' = (fromRational (eTime e),
->                   ANote chan (ePitch e) (eVol e) (fromRational $ eDur e))
+>                   ANote chan (ePitch e) (eVol e) (fromRational $ eDur e) (ePitchBend e))
 >             es' = channelMap cf cMap' es
 >             iNum = if i==Percussion then 0 else fromEnum i
 >         in  if newI then (fst e', Std $ ProgramChange chan iNum) : e' : es'
@@ -291,7 +291,7 @@ instruments are found that are not accounted for, an error is thrown.
 
 > instance NFData MidiMessage where
 >     rnf (Std m) = rnf m
->     rnf (ANote c k v d) = rnf c `seq` rnf k `seq` rnf v `seq` rnf d
+>     rnf (ANote c k v d pb) = rnf c `seq` rnf k `seq` rnf v `seq` rnf d `seq` rnf pb
 
 
 --------------------------------
@@ -357,4 +357,5 @@ instruments are found that are not accounted for, an error is thrown.
 >     rnf (Volume v) = rnf v
 >     rnf (Fingering f) = rnf f
 >     rnf (Dynamics d) = rnf d
+>     rnf (PitchShift s) = rnf s
 >     rnf (Params p) = rnf p

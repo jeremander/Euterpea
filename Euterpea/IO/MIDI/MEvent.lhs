@@ -8,6 +8,7 @@
 >     eTime    :: PTime, -- onset time
 >     eInst    :: InstrumentName, -- instrument
 >     ePitch   :: AbsPitch, -- pitch number
+>     ePitchBend :: Int, -- pitch bend, in MIDI pitch bend units
 >     eDur     :: DurT, -- note duration
 >     eVol     :: Volume, -- volume
 >     eParams  :: [Double]} -- optional other parameters 
@@ -69,11 +70,20 @@
 > musicToMEvents c (Modify (Custom x) m) = musicToMEvents c m -- Custom cuases no change
 > musicToMEvents c m@(Modify x m') = musicToMEvents c $ applyControls m -- Transpose and Tempo addressed by applyControls
 
+> pitchBendPerCent :: Double
+> pitchBendPerCent = 8192 / 200
+
 > noteToMEvent :: MContext -> Dur -> (Pitch, [NoteAttribute]) -> MEvent
 > noteToMEvent c@(MContext ct ci cdur cvol) d (p, nas) = 
->     let e0 = MEvent{eTime=ct, ePitch=absPitch p, eInst=ci, eDur=d*cdur, eVol=cvol, eParams=[]}
+>     let e0 = MEvent{eTime=ct, ePitch=absPitch p, ePitchBend=8192, eInst=ci, eDur=d*cdur, eVol=cvol, eParams=[]}
 >     in  foldr nasFun e0 nas where
 >     nasFun :: NoteAttribute -> MEvent -> MEvent
+>     nasFun (PitchShift cts) ev@MEvent{ePitch=ap} = ev {ePitch = ap', ePitchBend = 8192 + pbu}
+>           where
+>               (isNeg, absCts) = (cts < 0, abs cts)
+>               (semis, cts') = divMod (round absCts) 100
+>               (ap', cts'') = if isNeg then (ap - semis, -cts') else (ap + semis, cts')
+>               pbu = round $ fromIntegral cts'' * pitchBendPerCent
 >     nasFun (Volume v) ev = ev {eVol = v}
 >     nasFun (Params pms) ev = ev {eParams = pms}
 >     nasFun _ ev = ev

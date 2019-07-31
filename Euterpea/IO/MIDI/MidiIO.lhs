@@ -47,7 +47,7 @@
 > type MidiEvent = (Time, MidiMessage)
 
 > data MidiMessage = ANote { channel :: !Channel, key :: !Key,
->                           velocity :: !Velocity, duration :: !Time }
+>                           velocity :: !Velocity, duration :: !Time, pitchBend :: !Int }
 >                  | Std Message
 >   deriving Show
 
@@ -326,7 +326,8 @@ played.  Otherwise, it is queued for later.
 >
 >   case m of
 >     Std m -> deliver t m
->     ANote c k v d -> do
+>     ANote c k v d pb -> do
+>         deliver t     (PitchWheel c pb)
 >         deliver t     (NoteOn c k v)
 >         deliver (t+d) (NoteOff c k v)
 
@@ -508,7 +509,7 @@ A conversion function from Codec.Midi Messages to PortMidi PMMsgs.
 > midiEvent (ProgramChange c pn)    = Just $ PMMsg (192 .|. (fromIntegral c .&. 0xF)) (fromIntegral pn) 0
 > midiEvent (ChannelPressure c pr)  = Just $ PMMsg (208 .|. (fromIntegral c .&. 0xF)) (fromIntegral pr) 0
 > midiEvent (PitchWheel c pb)       = Just $ PMMsg (224 .|. (fromIntegral c .&. 0xF)) (fromIntegral lo) (fromIntegral hi)
->  where (hi,lo) = (pb `shiftR` 8, pb .&. 0xFF)
+>  where (hi,lo) = (pb `shiftR` 7, pb .&. 0x7F)
 > midiEvent _ = Nothing
 
 
@@ -525,7 +526,7 @@ A conversion function from PortMidi PMMsgs to Codec.Midi Messages.
 >     0xB -> Just $ ControlChange c (fromIntegral d1) (fromIntegral d2)
 >     0xC -> Just $ ProgramChange c (fromIntegral d1)
 >     0xD -> Just $ ChannelPressure c (fromIntegral d1)
->     0xE -> Just $ PitchWheel c (fromIntegral (d1 + d2 `shiftL` 8))
+>     0xE -> Just $ PitchWheel c (fromIntegral (d1 + d2 `shiftL` 7))
 >     0xF -> Nothing -- SysEx event not handled
 >     _   -> Nothing
 

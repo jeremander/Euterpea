@@ -23,6 +23,7 @@ Euterpea.
 >     (exportMidiFile)  where
 > import Codec.Midi
 > import Numeric
+> import Data.Bits
 > import Data.Char
 > import qualified Data.ByteString as Byte 
 
@@ -243,6 +244,8 @@ Of these, only the end of track and tempo marker are implemented.
 >     Byte.concat [Byte.pack [0x90 + fromIntegral c], padByte 1 k, padByte 1 v]
 > msgToBytes (NoteOff c k v) = 
 >     Byte.concat [Byte.pack [0x80 + fromIntegral c], padByte 1 k, padByte 1 v]
+> msgToBytes (PitchWheel c p) =
+>     Byte.concat [Byte.pack [0xE0 + fromIntegral c], padByte 1 (p .&. 0x7F), padByte 1 (shiftR p 7)]
 > msgToBytes (ProgramChange c p) =  
 >     Byte.concat [Byte.pack [0xC0 + fromIntegral c], padByte 1 p]
 > msgToBytes (ControlChange c n v) =  
