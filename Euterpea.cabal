@@ -1,9 +1,4 @@
-cabal-version: 1.12
-
--- This file has been generated from package.yaml by hpack version 0.34.6.
---
--- see: https://github.com/sol/hpack
-
+cabal-version:  2.4
 name:           Euterpea
 version:        2.1.0
 synopsis:       Library for computer music research and education
@@ -12,12 +7,17 @@ category:       Sound, Music
 stability:      experimental
 homepage:       http://www.euterpea.com
 bug-reports:    https://github.com/jeremander/Euterpea2/issues
-author:         Paul Hudak <paul.hudak@yale.edu>, Eric Cheng <eric.cheng@aya.yale.edu>, Hai (Paul) Liu <hai.liu@aya.yale.edu>, Donya Quick <donyaquick@gmail.com>, Jeremy Silver <jeremys@nessiness.com> Dan Winograd-Cort <dwincort@gmail.com >
+author:         Paul Hudak <paul.hudak@yale.edu>,
+                Eric Cheng <eric.cheng@aya.yale.edu>,
+                Hai (Paul) Liu <hai.liu@aya.yale.edu>,
+                Donya Quick <donyaquick@gmail.com>,
+                Jeremy Silver <jeremys@nessiness.com>,
+                Dan Winograd-Cort <dwincort@gmail.com>
 maintainer:     Jeremy Silver <jeremys@nessiness.com>
 copyright:      Copyright (c) 2008-2022 Euterpea authors
-license:        BSD3
+license:        BSD-3-Clause
 license-file:   License
-build-type:     Custom
+-- build-type:     Custom
 extra-source-files:
     ReadMe.txt
 

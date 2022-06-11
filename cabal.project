@@ -1,0 +1,4 @@
+packages: .
+with-compiler: ghc-9.0.2
+documentation: true
+verbose: 2
