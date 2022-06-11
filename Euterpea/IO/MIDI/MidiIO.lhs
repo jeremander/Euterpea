@@ -21,7 +21,7 @@
 >                        openInput, openOutput, readEvents,
 >                        close, writeShort, getErrorText, terminate, initialize,
 >                        PMStream, PMError (..),
->                        PMEvent (..), PMMsg (PMMsg), 
+>                        PMEvent (..), PMMsg (PMMsg),
 >                        encodeMsg, decodeMsg,
 >                        PMSuccess (..))
 > import Control.Exception (finally)
@@ -207,7 +207,7 @@ initializeMidi just initializes PortMidi
 > initializeMidi :: IO ()
 > initializeMidi = do
 >   e <- initialize
->   case e of 
+>   case e of
 >       Right _ -> return ()
 >       Left e' -> reportError "initializeMidi" e'
 
@@ -317,10 +317,10 @@ played.  Otherwise, it is queued for later.
 
 > deliverMidiEvent :: OutputDeviceID -> MidiEvent -> IO ()
 > deliverMidiEvent devId (t,m) = do
+>   return undefined
 >   (pChan, out, _stop) <- getOutDev devId
 >   now <- getTimeNow
->   let deliver t m = do
->       if t == 0
+>   let deliver t m = if t == 0
 >         then out (now,m)
 >         else push pChan (now+t) m
 >
