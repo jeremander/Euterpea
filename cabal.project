@@ -1,4 +1,3 @@
 packages: .
-with-compiler: ghc-9.0.2
-documentation: true
+with-compiler: ghc-9.2.1
 verbose: 2
